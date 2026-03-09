@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>疲劳驾驶检测系统 - 后端管理面板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        success: '#52C41A',
+                        warning: '#FAAD14',
+                        danger: '#FF4D4F',
+                        info: '#8C8C8C',
+                        dark: '#1D2129',
+                        light: '#F7F8FA'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto { content-visibility: auto; }
+            .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+            .scrollbar-hide::-webkit-scrollbar { display: none; }
+            .card-shadow { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); }
+            .transition-custom { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        }
+    </style>
+</head>
+<body class="bg-light min-h-screen font-sans">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <i class="fa fa-shield text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-dark">疲劳驾驶检测系统</h1>
+            </div>
+            <div class="flex items-center space-x-6">
+                <div class="text-sm text-info" id="current-time"></div>
+                <div class="relative" id="user-menu-container">
+                    <button id="user-menu-button" class="flex items-center space-x-2 focus:outline-none hover:bg-gray-50 p-1 rounded-md transition-custom">
+                        <img src="https://picsum.photos/32/32" alt="管理员头像" class="w-8 h-8 rounded-full border-2 border-primary/20">
+                        <span class="text-dark font-medium hidden md:inline">系统管理员</span>
+                        <i class="fa fa-angle-down text-info transition-transform duration-200" id="menu-arrow"></i>
+                    </button>
+                    <!-- 下拉菜单 -->
+                    <div id="user-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden">
+                        <a href="#" id="change-password-link" class="block px-4 py-2 text-sm text-dark hover:bg-gray-100 transition-custom">
+                            <i class="fa fa-key mr-2 text-primary"></i>修改密码
+                        </a>
+                        <a href="#" id="logout-link" class="block px-4 py-2 text-sm text-dark hover:bg-gray-100 transition-custom">
+                            <i class="fa fa-sign-out mr-2 text-primary"></i>退出登录
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto pt-20 pb-10 px-4">
+        <!-- 状态概览 -->
+        <section class="mb-8">
+            <div class="flex flex-wrap justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-dark">系统状态概览</h2>
+                <button id="refresh-stats" class="bg-primary text-white px-4 py-2 rounded-md flex items-center space-x-2 hover:bg-primary/90 transition-custom">
+                    <i class="fa fa-refresh"></i>
+                    <span>刷新数据</span>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- 今日检测次数 -->
+                <div class="bg-white rounded-lg p-6 card-shadow hover:shadow-lg transition-custom">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-info text-sm mb-1">今日检测次数</p>
+                            <h3 class="text-3xl font-bold text-dark mb-2" id="today-detections">0</h3>
+                            <p class="text-success text-sm flex items-center"><i class="fa fa-arrow-up mr-1"></i>较昨日 +15%</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+                            <i class="fa fa-eye text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 疲劳驾驶警报 -->
+                <div class="bg-white rounded-lg p-6 card-shadow hover:shadow-lg transition-custom">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-info text-sm mb-1">疲劳驾驶警报</p>
+                            <h3 class="text-3xl font-bold text-dark mb-2" id="fatigue-alerts">0</h3>
+                            <p class="text-danger text-sm flex items-center"><i class="fa fa-arrow-up mr-1"></i>较昨日 +8%</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-danger/10 flex items-center justify-center text-danger">
+                            <i class="fa fa-exclamation-triangle text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 系统状态 -->
+                <div class="bg-white rounded-lg p-6 card-shadow hover:shadow-lg transition-custom">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-info text-sm mb-1">系统状态</p>
+                            <h3 class="text-3xl font-bold text-dark mb-2" id="system-status">正常</h3>
+                            <p class="text-success text-sm">服务运行中</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center text-success">
+                            <i class="fa fa-check-circle text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 系统信息卡片 -->
+        <section class="bg-white rounded-lg p-6 card-shadow mb-8">
+            <h3 class="text-lg font-bold text-dark mb-4 flex items-center">
+                <i class="fa fa-info-circle text-primary mr-2"></i>
+                系统信息
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 border border-gray-100 rounded-lg">
+                    <p class="text-info text-sm mb-1">系统版本</p>
+                    <p class="text-dark font-medium">1.0.0</p>
+                </div>
+                <div class="p-4 border border-gray-100 rounded-lg">
+                    <p class="text-info text-sm mb-1">数据库状态</p>
+                    <p class="text-success font-medium">已连接</p>
+                </div>
+                <div class="p-4 border border-gray-100 rounded-lg">
+                    <p class="text-info text-sm mb-1">模型状态</p>
+                    <p class="text-dark font-medium">已加载</p>
+                </div>
+                <div class="p-4 border border-gray-100 rounded-lg">
+                    <p class="text-info text-sm mb-1">最后更新时间</p>
+                    <p class="text-dark font-medium" id="last-update-time">--</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 实时检测记录 -->
+        <section class="bg-white rounded-lg p-6 card-shadow mb-8">
+            <div class="flex flex-wrap justify-between items-center mb-6">
+                <h3 class="text-lg font-bold text-dark flex items-center">
+                    <i class="fa fa-list-alt text-primary mr-2"></i>
+                    实时检测记录
+                </h3>
+                <div class="flex space-x-2 mt-2 md:mt-0">
+                    <div class="relative">
+                        <input type="text" id="search-records" placeholder="搜索记录..." class="pl-10 pr-4 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-info"></i>
+                    </div>
+                    <select id="record-type-filter" class="border border-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <option>全部类型</option>
+                        <option>摄像头检测</option>
+                        <option>视频文件检测</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 text-left text-sm text-info border-b border-gray-200">
+                            <th class="p-3 font-medium">检测ID</th>
+                            <th class="p-3 font-medium">时间</th>
+                            <th class="p-3 font-medium">客户端IP</th>
+                            <th class="p-3 font-medium">检测类型</th>
+                            <th class="p-3 font-medium">状态</th>
+                            <th class="p-3 font-medium">结果</th>
+                            <th class="p-3 font-medium">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detection-records">
+                        <!-- 表格内容将通过JavaScript动态加载 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4">
+                <div class="flex justify-between items-center">
+                    <p class="text-sm text-info">共 <span id="total-records">0</span> 条记录</p>
+                    <!-- 分页控件 -->
+                    <div id="pagination-controls" class="flex items-center space-x-1">
+                        <button id="prev-page" class="px-3 py-1 text-sm border border-gray-200 rounded-md hover:bg-gray-50 transition-custom" disabled>
+                            <i class="fa fa-angle-left"></i>
+                        </button>
+                        <div id="page-numbers" class="flex items-center space-x-1"></div>
+                        <button id="next-page" class="px-3 py-1 text-sm border border-gray-200 rounded-md hover:bg-gray-50 transition-custom" disabled>
+                            <i class="fa fa-angle-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 系统日志 -->
+        <section class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex flex-wrap justify-between items-center mb-6">
+                <h3 class="text-lg font-bold text-dark flex items-center">
+                    <i class="fa fa-history text-primary mr-2"></i>
+                    系统日志
+                </h3>
+                <div class="flex space-x-2 mt-2 md:mt-0">
+                    <div class="relative">
+                        <input type="text" id="search-logs" placeholder="搜索日志..." class="pl-10 pr-4 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-info"></i>
+                    </div>
+                    <select id="log-level-filter" class="border border-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <option>全部级别</option>
+                        <option>INFO</option>
+                        <option>WARNING</option>
+                        <option>ERROR</option>
+                        <option>CRITICAL</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="overflow-y-auto max-h-96 scrollbar-hide">
+                <div id="system-logs" class="space-y-2">
+                    <!-- 日志内容将通过JavaScript动态加载 -->
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <button id="export-logs-btn" class="text-primary hover:text-primary/80 transition-custom flex items-center">
+                    <i class="fa fa-download mr-1"></i>
+                    导出日志
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-gray-200 py-4">
+        <div class="container mx-auto px-4 text-center text-sm text-info">
+            <p>© 2025 疲劳驾驶检测系统 | 技术支持：智能交通研究团队</p>
+        </div>
+    </footer>
+
+    <!-- 记录详情模态框 -->
+    <div id="record-detail-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center p-5 border-b border-gray-200">
+                <h3 class="text-lg font-bold text-dark">检测记录详情</h3>
+                <button id="close-modal" class="text-info hover:text-dark transition-custom">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-5">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                    <div>
+                        <p class="text-info text-sm mb-1">检测ID</p>
+                        <p class="text-dark font-medium" id="modal-record-id">--</p>
+                    </div>
+                    <div>
+                        <p class="text-info text-sm mb-1">时间戳</p>
+                        <p class="text-dark font-medium" id="modal-timestamp">--</p>
+                    </div>
+                    <div>
+                        <p class="text-info text-sm mb-1">客户端IP</p>
+                        <p class="text-dark font-medium" id="modal-ip">--</p>
+                    </div>
+                    <div>
+                        <p class="text-info text-sm mb-1">检测类型</p>
+                        <p class="text-dark font-medium" id="modal-type">--</p>
+                    </div>
+                    <div>
+                        <p class="text-info text-sm mb-1">状态</p>
+                        <p class="text-dark font-medium" id="modal-status">--</p>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <p class="text-info text-sm mb-2">详细信息</p>
+                    <div id="modal-details" class="bg-gray-50 p-4 rounded-md overflow-x-auto text-sm">
+                        --
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 mt-5">
+                    <button id="close-modal-btn" class="px-4 py-2 border border-gray-200 rounded-md text-info hover:bg-gray-50 transition-custom">
+                        关闭
+                    </button>
+                    <button id="export-report-btn" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-custom">
+                        导出报告
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化时间显示
+        function updateCurrentTime() {
+            const now = new Date();
+            const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            document.getElementById('current-time').textContent = now.toLocaleString('zh-CN', options);
+        }
+        
+        setInterval(updateCurrentTime, 1000);
+        updateCurrentTime();
+
+        // 从API获取仪表板数据
+        async function fetchDashboardData() {
+            try {
+                const response = await fetch('/api/admin/dashboard_data');
+                if (!response.ok) {
+                    throw new Error('获取仪表板数据失败');
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('获取仪表板数据时出错:', error);
+                // 显示错误提示
+                showNotification('获取仪表板数据失败，请刷新页面重试', 'error');
+                // 返回默认数据作为后备
+                return {
+                    today_detections: 0,
+                    fatigue_alerts: 0,
+                    system_status: '未知'
+                };
+            }
+        }
+
+        // 更新系统统计数据
+        async function updateSystemStats() {
+            const data = await fetchDashboardData();
+            
+            // 更新今日检测次数
+            document.getElementById('today-detections').textContent = data.today_detections || 0;
+            
+            // 更新检测次数较昨日变化百分比
+            const detectionChangeEl = document.querySelector('#today-detections + p');
+            if (detectionChangeEl) {
+                const detectionChangePercent = data.detection_change_percent || 15; // 默认值保持原有效果
+                const changeDirection = detectionChangePercent > 0 ? '+' : '';
+                const changeIcon = detectionChangePercent > 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+                const changeClass = detectionChangePercent > 0 ? 'text-success' : 'text-danger';
+                detectionChangeEl.innerHTML = `<i class="fa ${changeIcon} mr-1"></i>较昨日 ${changeDirection}${detectionChangePercent}%`;
+                detectionChangeEl.className = `${changeClass} text-sm flex items-center`;
+            }
+            
+            // 更新疲劳驾驶警报数
+            document.getElementById('fatigue-alerts').textContent = data.fatigue_alerts || 0;
+            
+            // 更新警报数较昨日变化百分比
+            const alertChangeEl = document.querySelector('#fatigue-alerts + p');
+            if (alertChangeEl) {
+                const alertChangePercent = data.alert_change_percent || 8; // 默认值保持原有效果
+                const changeDirection = alertChangePercent > 0 ? '+' : '';
+                const changeIcon = alertChangePercent > 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+                const changeClass = alertChangePercent > 0 ? 'text-danger' : 'text-success';
+                alertChangeEl.innerHTML = `<i class="fa ${changeIcon} mr-1"></i>较昨日 ${changeDirection}${alertChangePercent}%`;
+                alertChangeEl.className = `${changeClass} text-sm flex items-center`;
+            }
+            
+            // 更新系统状态
+            document.getElementById('system-status').textContent = data.system_status || '未知';
+            updateLastUpdateTime();
+        }
+
+        // 当前分页状态
+        let currentPage = 1;
+        const pageSize = 5;
+        let totalRecords = 0;
+        let totalPages = 1;
+        
+        // 从API获取检测记录（支持分页和过滤）
+        async function fetchDetectionRecords(page = 1, size = 5) {
+            try {
+                // 获取搜索和过滤参数
+                const searchTerm = document.getElementById('search-records')?.value.toLowerCase().trim() || '';
+                const selectedType = document.getElementById('record-type-filter')?.value || '全部类型';
+                
+                // 构建查询参数
+                const params = new URLSearchParams({
+                    page: page.toString(),
+                    page_size: size.toString()
+                });
+                
+                if (searchTerm) {
+                    params.append('search', searchTerm);
+                }
+                
+                if (selectedType !== '全部类型') {
+                    // 映射用户可见类型到实际类型值
+                    const typeMap = {
+                        '摄像头检测': 'camera',
+                        '视频文件检测': 'video_file'
+                    };
+                    const targetType = typeMap[selectedType] || selectedType;
+                    params.append('type', targetType);
+                }
+                
+                const response = await fetch(`/api/admin/detection_records?${params.toString()}`);
+                if (!response.ok) {
+                    throw new Error('获取检测记录失败');
+                }
+                const data = await response.json();
+                
+                // 更新分页信息
+                if (data.pagination) {
+                    totalRecords = data.pagination.total_count;
+                    totalPages = data.pagination.total_pages;
+                }
+                
+                return data.records || [];
+            } catch (error) {
+                console.error('获取检测记录时出错:', error);
+                showNotification('获取检测记录失败', 'error');
+                // 返回空数组，让前端显示无数据状态
+                return [];
+            }
+        }
+
+        // 加载检测记录
+        async function loadDetectionRecords() {
+            const recordsContainer = document.getElementById('detection-records');
+            const records = await fetchDetectionRecords(currentPage, pageSize);
+            
+            // 更新总记录数显示
+            document.getElementById('total-records').textContent = totalRecords;
+            
+            recordsContainer.innerHTML = '';
+            if (records.length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td colspan="7" class="p-6 text-center text-info">
+                        <i class="fa fa-info-circle mr-2"></i>暂无检测记录
+                    </td>
+                `;
+                recordsContainer.appendChild(emptyRow);
+                return;
+            }
+
+            records.forEach(record => {
+                let statusClass = 'bg-gray-100 text-info';
+                let resultClass = 'text-dark';
+                
+                if (record.status === 'completed') {
+                    statusClass = 'bg-success/10 text-success';
+                } else if (record.status === 'processing') {
+                    statusClass = 'bg-warning/10 text-warning';
+                }
+                
+                if (record.result.includes('正常')) {
+                    resultClass = 'text-success';
+                } else if (record.result.includes('轻度')) {
+                    resultClass = 'text-warning';
+                } else if (record.result.includes('中度') || record.result.includes('重度')) {
+                    resultClass = 'text-danger';
+                }
+                
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-100 hover:bg-gray-50 transition-custom';
+                row.innerHTML = `
+                    <td class="p-3 text-sm">${record.id || '-'}</td>
+                    <td class="p-3 text-sm">${record.time || '-'}</td>
+                    <td class="p-3 text-sm">${record.ip || '-'}</td>
+                    <td class="p-3 text-sm">${record.type || '-'}</td>
+                    <td class="p-3 text-sm"><span class="px-2 py-1 rounded-full text-xs ${statusClass}">${record.status || '-'}</span></td>
+                    <td class="p-3 text-sm font-medium ${resultClass}">${record.result || '-'}</td>
+                    <td class="p-3 text-sm">
+                        <button class="view-record-btn text-primary hover:text-primary/80 mr-3 transition-custom" data-record-id="${record.id}">
+                            <i class="fa fa-eye"></i>
+                        </button>
+                        <button class="download-record-btn text-info hover:text-info/80 transition-custom" data-record-id="${record.id}">
+                            <i class="fa fa-download"></i>
+                        </button>
+                    </td>
+                `;
+                recordsContainer.appendChild(row);
+            });
+            
+            // 更新分页控件
+            updatePagination();
+        }
+
+        // 从API获取系统日志
+        async function fetchSystemLogs() {
+            try {
+                const response = await fetch('/api/admin/system_logs');
+                if (!response.ok) {
+                    throw new Error('获取系统日志失败');
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('获取系统日志时出错:', error);
+                showNotification('获取系统日志失败', 'error');
+                // 返回空数组，让前端显示无数据状态
+                return [];
+            }
+        }
+
+        // 加载系统日志
+        async function loadSystemLogs() {
+            const logsContainer = document.getElementById('system-logs');
+            const logs = await fetchSystemLogs();
+
+            logsContainer.innerHTML = '';
+            if (logs.length === 0) {
+                const emptyLog = document.createElement('div');
+                emptyLog.className = 'p-6 text-center text-info';
+                emptyLog.innerHTML = '<i class="fa fa-info-circle mr-2"></i>暂无系统日志';
+                logsContainer.appendChild(emptyLog);
+                return;
+            }
+
+            logs.forEach(log => {
+                let levelClass = 'bg-gray-100 text-info';
+                
+                if (log.level === 'INFO') {
+                    levelClass = 'bg-primary/10 text-primary';
+                } else if (log.level === 'WARNING') {
+                    levelClass = 'bg-warning/10 text-warning';
+                } else if (log.level === 'ERROR') {
+                    levelClass = 'bg-danger/10 text-danger';
+                } else if (log.level === 'CRITICAL') {
+                    levelClass = 'bg-danger text-white';
+                }
+                
+                const logItem = document.createElement('div');
+                logItem.className = 'p-3 rounded-md bg-gray-50 hover:bg-gray-100 transition-custom';
+                logItem.innerHTML = `
+                    <div class="flex items-center mb-1">
+                        <span class="text-xs font-medium px-2 py-0.5 rounded-full mr-2 ${levelClass}">${log.level || '-'}</span>
+                        <span class="text-xs text-info">${log.time || '-'}</span>
+                    </div>
+                    <p class="text-sm text-dark">${log.message || '-'}</p>
+                `;
+                logsContainer.appendChild(logItem);
+            });
+        }
+
+        // 更新最后更新时间
+        function updateLastUpdateTime() {
+            const now = new Date();
+            const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            document.getElementById('last-update-time').textContent = now.toLocaleString('zh-CN', options);
+        }
+
+        // 查看记录详情
+        async function viewRecordDetails(recordId) {
+            try {
+                // 从ID中提取实际的数据库ID（DT-20241201-0001 -> 1）
+                const actualId = parseInt(recordId.split('-').pop(), 10);
+                
+                const response = await fetch(`/api/admin/detection_record/${actualId}`);
+                if (!response.ok) {
+                    throw new Error('获取记录详情失败');
+                }
+                
+                const record = await response.json();
+                
+                // 填充模态框内容
+                document.getElementById('modal-record-id').textContent = recordId;
+                document.getElementById('modal-timestamp').textContent = record.timestamp || '-';
+                document.getElementById('modal-ip').textContent = record.user_ip || '-';
+                document.getElementById('modal-type').textContent = record.detection_type || '-';
+                document.getElementById('modal-status').textContent = record.status || '-';
+                
+                // 处理details字段
+                const detailsContent = document.getElementById('modal-details');
+                if (record.details && typeof record.details === 'object') {
+                    detailsContent.innerHTML = '<pre>' + JSON.stringify(record.details, null, 2) + '</pre>';
+                } else {
+                    detailsContent.textContent = record.details || '-';
+                }
+                
+                // 显示模态框
+                const modal = document.getElementById('record-detail-modal');
+                modal.style.display = 'block';
+            } catch (error) {
+                showNotification('查看记录详情失败: ' + error.message, 'error');
+                console.error('查看记录详情失败:', error);
+            }
+        }
+        
+        // 下载单条记录
+        function downloadSingleRecord(recordId) {
+            window.open(`/api/admin/download_detection_records?record_id=${recordId}`, '_blank');
+        }
+        
+        // 导出系统日志
+        async function exportSystemLogs() {
+            try {
+                // 获取当前过滤条件
+                const logLevelFilter = document.getElementById('log-level-filter');
+                const selectedLevel = logLevelFilter ? logLevelFilter.value : '全部级别';
+                
+                const searchInput = document.getElementById('search-logs');
+                const searchTerm = searchInput ? searchInput.value.trim() : '';
+                
+                // 获取系统日志数据
+                const logs = await fetchSystemLogs();
+                
+                // 根据当前过滤条件过滤日志
+                let filteredLogs = logs;
+                if (selectedLevel !== '全部级别') {
+                    filteredLogs = filteredLogs.filter(log => log.level === selectedLevel);
+                }
+                if (searchTerm) {
+                    const term = searchTerm.toLowerCase();
+                    filteredLogs = filteredLogs.filter(log => 
+                        log.message.toLowerCase().includes(term) || 
+                        log.time.toLowerCase().includes(term)
+                    );
+                }
+                
+                // 转换为CSV格式
+                let csvContent = '时间,级别,消息\n';
+                filteredLogs.forEach(log => {
+                    const time = log.time || '';
+                    const level = log.level || '';
+                    // 处理CSV中的特殊字符
+                    const message = log.message ? `"${log.message.replace(/"/g, '""')}"` : '';
+                    csvContent += `${time},${level},${message}\n`;
+                });
+                
+                // 创建Blob对象
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                
+                // 创建下载链接
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                
+                // 设置文件名，包含日期
+                const now = new Date();
+                const dateStr = now.getFullYear() + 
+                               String(now.getMonth() + 1).padStart(2, '0') + 
+                               String(now.getDate()).padStart(2, '0');
+                const filename = `系统日志_${dateStr}.csv`;
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                
+                // 触发下载
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // 清理URL对象
+                URL.revokeObjectURL(url);
+                
+                showNotification('日志导出成功', 'success');
+            } catch (error) {
+                console.error('导出日志时出错:', error);
+                showNotification('日志导出失败: ' + error.message, 'error');
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 初始化搜索功能
+            initSearchFunctions();
+            // 显示加载状态
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.className = 'fixed inset-0 bg-white/80 flex items-center justify-center z-50';
+            loadingOverlay.innerHTML = `
+                <div class="text-center">
+                    <i class="fa fa-spinner fa-spin text-3xl text-primary mb-4"></i>
+                    <p class="text-dark">正在加载数据...</p>
+                </div>
+            `;
+            document.body.appendChild(loadingOverlay);
+
+            try {
+                // 并行加载所有数据
+                await Promise.all([
+                    updateSystemStats(),
+                    loadDetectionRecords(),
+                    loadSystemLogs()
+                ]);
+                
+                // 初始化最后更新时间
+                updateLastUpdateTime();
+                
+                showNotification('数据加载成功', 'success');
+            } catch (error) {
+                console.error('初始化数据时出错:', error);
+            } finally {
+                // 移除加载状态
+                document.body.removeChild(loadingOverlay);
+            }
+            
+            // 导出日志按钮事件
+            document.getElementById('export-logs-btn').addEventListener('click', exportSystemLogs);
+            
+            // 刷新按钮事件
+            document.getElementById('refresh-stats').addEventListener('click', async () => {
+                // 禁用按钮并显示加载状态
+                const refreshButton = document.getElementById('refresh-stats');
+                refreshButton.disabled = true;
+                refreshButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i><span>加载中...</span>';
+                
+                try {
+                    // 并行更新所有数据
+                    await Promise.all([
+                        updateSystemStats(),
+                        loadDetectionRecords(),
+                        loadSystemLogs()
+                    ]);
+                    
+                    showNotification('数据刷新成功', 'success');
+                } catch (error) {
+                    console.error('刷新数据时出错:', error);
+                    showNotification('数据刷新失败，请重试', 'error');
+                } finally {
+                    // 恢复按钮状态
+                    refreshButton.disabled = false;
+                    refreshButton.innerHTML = '<i class="fa fa-refresh"></i><span>刷新数据</span>';
+                }
+            });
+            
+            // 定期更新数据
+            setInterval(async () => {
+                try {
+                    await updateSystemStats();
+                } catch (error) {
+                    console.error('定期更新数据时出错:', error);
+                }
+            }, 30000);
+            
+            // 初始化分页事件监听
+            initPaginationEvents();
+        
+        // 初始化搜索功能
+        function initSearchFunctions() {
+            // 检测记录搜索功能
+            const searchRecordsInput = document.getElementById('search-records');
+            if (searchRecordsInput) {
+                searchRecordsInput.addEventListener('input', filterDetectionRecords);
+            }
+            
+            // 检测记录类型过滤
+            const recordTypeFilter = document.getElementById('record-type-filter');
+            if (recordTypeFilter) {
+                recordTypeFilter.addEventListener('change', filterDetectionRecords);
+            }
+            
+            // 系统日志搜索功能
+            const searchLogsInput = document.getElementById('search-logs');
+            if (searchLogsInput) {
+                searchLogsInput.addEventListener('input', filterSystemLogs);
+            }
+            
+            // 系统日志级别过滤
+            const logLevelFilter = document.getElementById('log-level-filter');
+            if (logLevelFilter) {
+                logLevelFilter.addEventListener('change', filterSystemLogs);
+            }
+        }
+        
+        // 过滤检测记录
+        function filterDetectionRecords() {
+            // 重置到第一页并重新加载数据
+            currentPage = 1;
+            loadDetectionRecords();
+        }
+        
+        // 过滤系统日志
+        function filterSystemLogs() {
+            const searchTerm = document.getElementById('search-logs').value.toLowerCase().trim();
+            const selectedLevel = document.getElementById('log-level-filter').value;
+            const logsContainer = document.getElementById('system-logs');
+            const logItems = logsContainer.querySelectorAll('.p-3.rounded-md.bg-gray-50');
+            let visibleCount = 0;
+            
+            logItems.forEach(logItem => {
+                const logText = logItem.textContent.toLowerCase();
+                let termMatch = logText.includes(searchTerm) || searchTerm === '';
+                let levelMatch = true;
+                
+                // 检查日志级别过滤
+                if (selectedLevel !== '全部级别') {
+                    const levelSpan = logItem.querySelector('span');
+                    levelMatch = levelSpan && levelSpan.textContent === selectedLevel;
+                }
+                
+                if (termMatch && levelMatch) {
+                    logItem.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    logItem.style.display = 'none';
+                }
+            });
+            
+            // 处理无搜索结果的情况
+            const emptyState = logsContainer.querySelector('.search-empty-state');
+            if ((searchTerm !== '' || selectedLevel !== '全部级别') && visibleCount === 0) {
+                if (!emptyState) {
+                    const emptyLog = document.createElement('div');
+                    emptyLog.className = 'search-empty-state p-6 text-center text-info';
+                    emptyLog.innerHTML = `<i class="fa fa-search mr-2"></i>未找到匹配的日志`;
+                    logsContainer.appendChild(emptyLog);
+                }
+            } else if (emptyState) {
+                emptyState.remove();
+            }
+        }
+        
+        // 初始化分页事件监听
+        function initPaginationEvents() {
+            document.getElementById('prev-page').addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadDetectionRecords();
+                }
+            });
+            
+            document.getElementById('next-page').addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadDetectionRecords();
+                }
+            });
+        }
+        
+        // 初始化分页事件监听
+        initPaginationEvents();
+        
+    });
+        
+    // 更新分页控件状态
+    function updatePagination() {
+        const prevBtn = document.getElementById('prev-page');
+        const nextBtn = document.getElementById('next-page');
+        const pageNumbersContainer = document.getElementById('page-numbers');
+        
+        // 更新按钮状态
+        prevBtn.disabled = currentPage === 1;
+        nextBtn.disabled = currentPage === totalPages;
+        
+        // 清空页码容器
+        pageNumbersContainer.innerHTML = '';
+        
+        // 生成页码按钮
+        const maxVisiblePages = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        
+        // 调整起始页以确保显示足够的页码
+        if (endPage - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+        
+        // 添加首页（如果不在显示范围内）
+        if (startPage > 1) {
+            addPageButton(1);
+            if (startPage > 2) {
+                addEllipsis();
+            }
+        }
+        
+        // 添加中间页码
+        for (let i = startPage; i <= endPage; i++) {
+            addPageButton(i);
+        }
+        
+        // 添加末页（如果不在显示范围内）
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                addEllipsis();
+            }
+            addPageButton(totalPages);
+        }
+        
+        function addPageButton(pageNum) {
+            const button = document.createElement('button');
+            button.className = `px-3 py-1 text-sm border rounded-md transition-custom ${pageNum === currentPage ? 'bg-primary text-white border-primary' : 'border-gray-200 hover:bg-gray-50'}`;
+            button.textContent = pageNum;
+            button.addEventListener('click', () => {
+                currentPage = pageNum;
+                loadDetectionRecords();
+            });
+            pageNumbersContainer.appendChild(button);
+        }
+        
+        function addEllipsis() {
+            const ellipsis = document.createElement('span');
+            ellipsis.className = 'px-2 text-sm text-gray-400';
+            ellipsis.textContent = '...';
+            pageNumbersContainer.appendChild(ellipsis);
+        }
+    }
+    
+    // 添加全局事件委托处理查看、下载按钮和模态框关闭
+    document.addEventListener('click', function(e) {
+            // 处理记录查看按钮
+            if (e.target.closest('.view-record-btn')) {
+                const btn = e.target.closest('.view-record-btn');
+                const recordId = btn.getAttribute('data-record-id');
+                viewRecordDetails(recordId);
+            }
+            // 处理记录下载按钮
+            else if (e.target.closest('.download-record-btn')) {
+                const btn = e.target.closest('.download-record-btn');
+                const recordId = btn.getAttribute('data-record-id');
+                downloadSingleRecord(recordId);
+            }
+            // 处理模态框中的导出报告按钮
+            else if (e.target.closest('#export-report-btn')) {
+                // 获取当前显示的记录ID
+                const recordId = document.getElementById('modal-record-id').textContent;
+                if (recordId && recordId !== '--') {
+                    downloadSingleRecord(recordId);
+                    console.log('导出报告按钮被点击，记录ID:', recordId);
+                } else {
+                    console.log('未找到有效的记录ID');
+                }
+            }
+            // 处理模态框关闭按钮
+            else if (e.target.closest('#close-modal') || e.target.closest('#close-modal-btn')) {
+                document.getElementById('record-detail-modal').style.display = 'none';
+            }
+            // 处理模态框背景点击关闭
+            else if (e.target === document.getElementById('record-detail-modal')) {
+                document.getElementById('record-detail-modal').style.display = 'none';
+            }
+        });
+        
+        // 通知提示函数
+        function showNotification(message, type = 'info') {
+            // 创建通知元素
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 px-4 py-3 rounded-md shadow-lg z-50 transform transition-all duration-300 ease-in-out translate-x-full`;
+            
+            // 设置不同类型的样式
+            let bgColor, icon, textColor;
+            switch (type) {
+                case 'success':
+                    bgColor = 'bg-success text-white';
+                    icon = 'fa-check-circle';
+                    break;
+                case 'error':
+                    bgColor = 'bg-danger text-white';
+                    icon = 'fa-exclamation-circle';
+                    break;
+                case 'warning':
+                    bgColor = 'bg-warning text-white';
+                    icon = 'fa-exclamation-triangle';
+                    break;
+                default:
+                    bgColor = 'bg-primary text-white';
+                    icon = 'fa-info-circle';
+            }
+            
+            notification.classList.add(...bgColor.split(' '));
+            
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fa ${icon} mr-3"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            // 添加到页面
+            document.body.appendChild(notification);
+            
+            // 显示动画
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+                notification.classList.add('translate-x-0');
+            }, 10);
+            
+            // 自动关闭
+            setTimeout(() => {
+                notification.classList.remove('translate-x-0');
+                notification.classList.add('translate-x-full');
+                
+                // 移除元素
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+        
+        // 用户头像下拉菜单交互
+        document.addEventListener('DOMContentLoaded', function() {
+            const userMenuButton = document.getElementById('user-menu-button');
+            const userDropdownMenu = document.getElementById('user-dropdown-menu');
+            const menuArrow = document.getElementById('menu-arrow');
+            const changePasswordLink = document.getElementById('change-password-link');
+            const logoutLink = document.getElementById('logout-link');
+            
+            if (userMenuButton && userDropdownMenu && menuArrow) {
+                // 点击头像按钮切换下拉菜单显示状态
+                userMenuButton.addEventListener('click', function() {
+                    // 切换下拉菜单的显示/隐藏
+                    userDropdownMenu.classList.toggle('hidden');
+                    // 旋转箭头图标
+                    menuArrow.classList.toggle('transform');
+                    menuArrow.classList.toggle('rotate-180');
+                });
+                
+                // 点击页面其他区域关闭下拉菜单
+                document.addEventListener('click', function(event) {
+                    const userMenuContainer = document.getElementById('user-menu-container');
+                    if (userMenuContainer && !userMenuContainer.contains(event.target)) {
+                        userDropdownMenu.classList.add('hidden');
+                        menuArrow.classList.remove('transform', 'rotate-180');
+                    }
+                });
+                
+                // 阻止下拉菜单内的点击事件冒泡，防止立即关闭
+                userDropdownMenu.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                });
+                
+                // 修改密码功能
+                if (changePasswordLink) {
+                    changePasswordLink.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        // 关闭下拉菜单
+                        userDropdownMenu.classList.add('hidden');
+                        menuArrow.classList.remove('transform', 'rotate-180');
+                        
+                        // 创建并显示修改密码模态框
+                        showChangePasswordModal();
+                    });
+                }
+                
+                // 退出登录功能
+                if (logoutLink) {
+                    logoutLink.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        // 确认退出
+                        if (confirm('确定要退出登录吗？')) {
+                            // 发送退出登录请求到后端
+                            fetch('/logout', {
+                                method: 'POST',
+                                credentials: 'same-origin',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
+                            })
+                            .then(response => {
+                                // 无论成功失败，都重定向到登录页面
+                                window.location.href = '/login';
+                            })
+                            .catch(error => {
+                                console.error('退出登录失败:', error);
+                                // 即使失败也重定向到登录页面
+                                window.location.href = '/login';
+                            });
+                        }
+                    });
+                }
+            }
+        });
+        
+        // 显示修改密码模态框
+        function showChangePasswordModal() {
+            // 创建模态框容器
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.id = 'change-password-modal';
+            
+            // 模态框内容
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-gray-800">修改密码</h3>
+                        <button id="close-password-modal" class="text-gray-500 hover:text-gray-700 focus:outline-none">
+                            <i class="fa fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <form id="change-password-form" class="space-y-4">
+                        <div>
+                            <label for="current-password" class="block text-sm font-medium text-gray-700 mb-1">当前密码</label>
+                            <input type="password" id="current-password" name="current_password" 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" 
+                                placeholder="请输入当前密码" required>
+                        </div>
+                        
+                        <div>
+                            <label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">新密码</label>
+                            <input type="password" id="new-password" name="new_password" 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" 
+                                placeholder="请输入新密码" required>
+                        </div>
+                        
+                        <div>
+                            <label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-1">确认新密码</label>
+                            <input type="password" id="confirm-password" name="confirm_password" 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" 
+                                placeholder="请再次输入新密码" required>
+                        </div>
+                        
+                        <div class="pt-2">
+                            <button type="submit" class="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+                                确认修改
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            // 添加到页面
+            document.body.appendChild(modal);
+            
+            // 关闭模态框事件
+            document.getElementById('close-password-modal').addEventListener('click', function() {
+                document.body.removeChild(modal);
+            });
+            
+            // 点击模态框外部关闭
+            modal.addEventListener('click', function(event) {
+                if (event.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            });
+            
+            // 表单提交事件
+            document.getElementById('change-password-form').addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // 获取表单数据
+                const currentPassword = document.getElementById('current-password').value;
+                const newPassword = document.getElementById('new-password').value;
+                const confirmPassword = document.getElementById('confirm-password').value;
+                
+                // 验证新密码是否匹配
+                if (newPassword !== confirmPassword) {
+                    showNotification('新密码两次输入不一致，请重新输入', 'error');
+                    return;
+                }
+                
+                // 验证密码长度
+                if (newPassword.length < 6) {
+                    showNotification('新密码长度至少为6位', 'error');
+                    return;
+                }
+                
+                // 发送修改密码请求
+                fetch('/change_password', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('密码修改成功！', 'success');
+                        // 关闭模态框
+                        document.body.removeChild(modal);
+                    } else {
+                        showNotification(data.message || '密码修改失败，请检查当前密码是否正确', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('密码修改请求失败:', error);
+                    showNotification('网络错误，请稍后重试', 'error');
+                });
+            });
+        }
+    </script>
+</body>
+</html>
