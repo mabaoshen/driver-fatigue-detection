@@ -1,4 +1,4 @@
-# Python 虚拟环境（核心：忽略 venv 文件夹）
+# 核心：忽略虚拟环境文件夹
 venv/
 env/
 *.env
@@ -13,8 +13,9 @@ __pycache__/
 Thumbs.db
 *.log
 
-# 依赖包清单（可选：可以提交 requirements.txt，方便别人安装依赖）
-# requirements.txt 不要忽略，其他依赖文件忽略
-*.egg-info/
-dist/
-build/
+# 大文件/依赖文件（额外防护）
+*.pyd
+*.dll
+*.exe
+*.so
+*.whl
