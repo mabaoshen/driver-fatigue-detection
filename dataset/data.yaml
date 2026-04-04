@@ -1,0 +1,11 @@
+# 类别数量
+nc: 4
+
+# 类别名称，需与 labels 中的标注类别对应
+names: ["closed_eye", "closed_mouth", "open_eye", "open_mouth"]
+
+# 训练集图片文件夹（绝对路径，直接复制）
+train: D:/pythonCode/Fatigue driving detection system/dataset/images/train
+
+# 验证集图片文件夹（绝对路径，直接复制）
+val: D:/pythonCode/Fatigue driving detection system/dataset/images/val
